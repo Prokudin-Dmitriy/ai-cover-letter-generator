@@ -5,3 +5,11 @@ repos:
     rev: 7.3.0
     hooks:
     -   id: flake8
+-   repo: local
+    hooks:
+    -   id: pytest
+        name: pytest
+        entry: pytest tests/
+        args: ["--maxfail=1", "--disable-warnings", "-q"]
+        language: system
+        types: [python]
