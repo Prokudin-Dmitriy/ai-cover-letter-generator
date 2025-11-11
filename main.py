@@ -1,23 +1,16 @@
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
-from uuid import uuid4, UUID
+from ollama import Client
+
+from app.models import PromptData
+from app.config import settings
+from app.utils import get_structured_prompt
 
 app = FastAPI()
 
-
-class PromptData(BaseModel):
-    """ Model for promt.
-
-    Keyword arguments: \n
-    prompt -- base of the promt,\n
-    info -- resume or job decsription text,\n
-    is_job_info -- bolean value wether it is resume or job decsription.
-    """
-
-    id: UUID = Field(default_factory=uuid4)
-    prompt: str | None = None
-    info: str
-    is_job_info: bool
+ai_client = Client(
+    host="https://ollama.com",
+    headers={"Authorization": "Bearer " + settings.ollama_api_key}
+)
 
 
 @app.get("/")
@@ -25,6 +18,18 @@ def read_root():
     return {"The context": "I am the cover letter creation app"}
 
 
-@app.post("/dispatch/")
+@app.get("/tags/")
+def list_models():
+    response = ai_client.list()
+    return response
+
+
+@app.post("/generate/")
 def send_promt_data(prompt: PromptData):
-    return {"prompt": prompt}
+    """Endpoint responsive for generating the cover letter"""
+
+    content = get_structured_prompt(prompt)
+
+    response = ai_client.generate("gpt-oss:20b-cloud", prompt=content, stream=False)
+
+    return {"prompt": prompt, "generated answer": response.response}
