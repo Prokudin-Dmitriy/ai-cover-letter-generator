@@ -5,11 +5,17 @@ import pytest
 from unittest.mock import patch
 from pydantic import ValidationError
 from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture
+def as_client():
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 def test_structured_prompt_with_resume():
@@ -56,12 +62,18 @@ def test_list_models(client):
         assert response.json() == {"models": ["model1", "model2"]}
 
 
-def test_generate_endpoint(client):
+@pytest.mark.asyncio
+async def test_generate_endpoint(as_client):
     fake_response = type("FakeResp", (), {"response": "Some generated cover letter"})()
-    content = {"info": "Job: Backend Engineer", "is_job_info": True}
+    form_data = {
+        "info": "Job: Backend Engineer",
+        "prompt": "",
+        "is_job_info": "true"
+    }
 
     with patch("app.main.ai_client.generate", return_value=fake_response):
-        response = client.post("/generate/", json=content)
+        async with as_client as ac:
+            response = await ac.post("/generate/", data=form_data)
         data = response.json()
 
         assert response.status_code == 200
